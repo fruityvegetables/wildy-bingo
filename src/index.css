@@ -1,0 +1,216 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --wildy-bg: #0f0a06;
+  --wildy-panel: #1a1208;
+  --wildy-panel-light: #2a1c0e;
+  --wildy-border: #5c4a2a;
+  --wildy-border-light: #8b7355;
+  --wildy-gold: #c4a035;
+  --wildy-red: #8b1a1a;
+  --wildy-red-bright: #c83232;
+  --wildy-green: #2d4a2d;
+  --wildy-green-light: #4a7a4a;
+  --wildy-text: #e8dcc8;
+  --wildy-muted: #9a8870;
+  --wildy-shadow: rgba(0, 0, 0, 0.55);
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'IBM Plex Mono', Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--wildy-text);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(139, 26, 26, 0.25) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, rgba(45, 74, 45, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #120c08 0%, var(--wildy-bg) 40%, #0a0704 100%);
+  background-attachment: fixed;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 2px solid var(--wildy-border);
+  border-radius: 2px;
+  background: #120c08;
+  color: var(--wildy-text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--wildy-gold);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--wildy-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--wildy-border-light);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #3a2a18 0%, #24180c 100%);
+  color: var(--wildy-text);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px var(--wildy-shadow);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  border-color: var(--wildy-gold);
+  background: linear-gradient(180deg, #6b5520 0%, #3d3010 100%);
+  color: #fff8e8;
+}
+
+.btn-secondary {
+  border-color: var(--wildy-green-light);
+  background: linear-gradient(180deg, #2d4a2d 0%, #1a2e1a 100%);
+}
+
+.btn-danger {
+  border-color: var(--wildy-red-bright);
+  background: linear-gradient(180deg, #6b1a1a 0%, #3d0f0f 100%);
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.btn-active {
+  border-color: var(--wildy-gold);
+  color: var(--wildy-gold);
+  background: rgba(196, 160, 53, 0.1);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--wildy-gold);
+  padding: 0;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-btn:hover {
+  color: #e8d080;
+}
+
+.form-message {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 2px;
+  font-size: 0.85rem;
+}
+
+.form-message.error {
+  background: rgba(139, 26, 26, 0.35);
+  border: 1px solid var(--wildy-red-bright);
+  color: #ffb0b0;
+}
+
+.form-message.success {
+  background: rgba(45, 74, 45, 0.35);
+  border: 1px solid var(--wildy-green-light);
+  color: #b8e8b8;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--wildy-muted);
+}
+
+.hint.footnote {
+  margin-top: 0.75rem;
+  line-height: 1.5;
+}
+
+.stone-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+    linear-gradient(180deg, var(--wildy-panel-light) 0%, var(--wildy-panel) 100%);
+  border: 3px solid var(--wildy-border);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(196, 160, 53, 0.15),
+    0 8px 24px var(--wildy-shadow);
+}
+
+.wildy-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  background: var(--wildy-red);
+  border: 1px solid var(--wildy-red-bright);
+  color: #ffe0e0;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.wildy-badge.small {
+  font-size: 0.7rem;
+}
+
+.loading-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  color: var(--wildy-gold);
+}

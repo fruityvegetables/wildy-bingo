@@ -1,0 +1,24 @@
+{
+  "name": "wilderness-bingo",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup-env.js",
+    "dev": "vite",
+    "dev:demo": "vite --mode demo",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@marsidev/react-turnstile": "^1.1.0",
+    "@supabase/supabase-js": "^2.50.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.2",
+    "vite": "^6.3.5"
+  }
+}
