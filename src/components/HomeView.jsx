@@ -137,7 +137,7 @@ export default function HomeView() {
                 <input
                   value={gameName}
                   onChange={(e) => setGameName(e.target.value)}
-                  placeholder="Wildy PK Night"
+                  placeholder="AFC Anti Bingo"
                 />
               </label>
               <label className="checkbox-row">
