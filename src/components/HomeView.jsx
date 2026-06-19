@@ -99,7 +99,7 @@ export default function HomeView() {
           <h2>Host or join a match</h2>
           <p className="hint">
             Hosts build the board, share a private code, then start the match. Boards lock permanently
-            — only tile marking updates in realtime.
+            but tile marking updates in realtime.
           </p>
 
           <div className="home-actions">
