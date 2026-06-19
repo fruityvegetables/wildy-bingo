@@ -1,13 +1,79 @@
-import {
-  USERNAME_RE,
-  checkRateLimit,
-  clientIp,
-  corsPreflight,
-  createAdminClient,
-  jsonResponse,
-  usernameToEmail,
-  verifyTurnstile,
-} from '../_shared/utils.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
+function usernameToEmail(username: string) {
+  return `${username.trim().toLowerCase()}@wilderness-bingo.app`;
+}
+
+function clientIp(req: Request) {
+  return req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for');
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    },
+  });
+}
+
+function corsPreflight() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    },
+  });
+}
+
+function createAdminClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+}
+
+async function verifyTurnstile(token: string, ip?: string | null) {
+  const secret = Deno.env.get('TURNSTILE_SECRET_KEY');
+  if (!secret) throw new Error('TURNSTILE_SECRET_KEY is not configured');
+
+  const body = new URLSearchParams({ secret, response: token });
+  if (ip) body.set('remoteip', ip);
+
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  const result = await response.json();
+  return result.success === true;
+}
+
+async function checkRateLimit(
+  admin: ReturnType<typeof createClient>,
+  bucket: string,
+  maxEvents: number,
+  windowSeconds: number
+) {
+  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  const { count, error } = await admin
+    .from('rate_limit_events')
+    .select('*', { count: 'exact', head: true })
+    .eq('bucket', bucket)
+    .gte('created_at', since);
+
+  if (error) throw error;
+  if ((count ?? 0) >= maxEvents) return false;
+
+  await admin.from('rate_limit_events').insert({ bucket });
+  return true;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
@@ -29,11 +95,8 @@ Deno.serve(async (req) => {
     }
 
     const admin = createAdminClient();
-    const bucket = `signup:${ip ?? 'unknown'}`;
-    const allowed = await checkRateLimit(admin, bucket, 5, 3600);
-    if (!allowed) {
-      return jsonResponse({ error: 'Too many signups. Try again later.' }, 429);
-    }
+    const allowed = await checkRateLimit(admin, `signup:${ip ?? 'unknown'}`, 5, 3600);
+    if (!allowed) return jsonResponse({ error: 'Too many signups. Try again later.' }, 429);
 
     const normalized = String(username).trim();
     const email = usernameToEmail(normalized);
@@ -44,9 +107,7 @@ Deno.serve(async (req) => {
       .ilike('username', normalized)
       .maybeSingle();
 
-    if (existing) {
-      return jsonResponse({ error: 'Username is already taken.' }, 409);
-    }
+    if (existing) return jsonResponse({ error: 'Username is already taken.' }, 409);
 
     const { error } = await admin.auth.admin.createUser({
       email,
@@ -55,9 +116,7 @@ Deno.serve(async (req) => {
       user_metadata: { username: normalized },
     });
 
-    if (error) {
-      return jsonResponse({ error: error.message }, 400);
-    }
+    if (error) return jsonResponse({ error: error.message }, 400);
 
     const { data: signInData, error: signInError } = await admin.auth.signInWithPassword({
       email,
