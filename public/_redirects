@@ -1,6 +1,0 @@
-# Only list client-side routes — do NOT use `/* /index.html 200` (Cloudflare error 100324).
-# Cloudflare Pages already serves index.html for unknown paths when no 404.html exists.
-/host/*  /index.html  200
-/play/*  /index.html  200
-/dev     /index.html  200
-/dev/*   /index.html  200
