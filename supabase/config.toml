@@ -1,7 +1,17 @@
-project_id = "your-project-ref"
+[project]
+id = "your-project-ref"
 
 [api]
 enabled = true
 
-[db]
-major_version = 15
+[functions.auth-signup]
+verify_jwt = false
+
+[functions.auth-login]
+verify_jwt = false
+
+[functions.create-game]
+verify_jwt = true
+
+[functions.join-game]
+verify_jwt = true

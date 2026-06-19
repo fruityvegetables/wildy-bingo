@@ -44,12 +44,24 @@ function createUserClient(authHeader: string | null) {
   );
 }
 
-async function verifyTurnstile(token: string, ip?: string | null) {
+function turnstileErrorMessage(errors: string[]) {
+  if (errors.includes('invalid-input-secret')) {
+    return 'Captcha misconfigured: TURNSTILE_SECRET_KEY must match the same Turnstile widget as VITE_TURNSTILE_SITE_KEY.';
+  }
+  if (errors.includes('timeout-or-duplicate')) {
+    return 'Captcha expired or already used. Complete captcha again, then submit immediately.';
+  }
+  if (errors.includes('invalid-input-response')) {
+    return 'Captcha token invalid. Refresh the captcha and try again.';
+  }
+  return 'Captcha verification failed.';
+}
+
+async function verifyTurnstile(token: string) {
   const secret = Deno.env.get('TURNSTILE_SECRET_KEY');
   if (!secret) throw new Error('TURNSTILE_SECRET_KEY is not configured');
 
   const body = new URLSearchParams({ secret, response: token });
-  if (ip) body.set('remoteip', ip);
 
   const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',
@@ -58,7 +70,8 @@ async function verifyTurnstile(token: string, ip?: string | null) {
   });
 
   const result = await response.json();
-  return result.success === true;
+  const errors: string[] = result['error-codes'] ?? [];
+  return { ok: result.success === true, errors };
 }
 
 async function checkRateLimit(
@@ -97,8 +110,16 @@ Deno.serve(async (req) => {
 
     const { joinCode, turnstileToken } = await req.json();
 
-    if (!turnstileToken || !(await verifyTurnstile(turnstileToken, ip))) {
-      return jsonResponse({ error: 'Captcha verification failed.' }, 400);
+    if (!turnstileToken) {
+      return jsonResponse({ error: 'Complete the captcha first.' }, 400);
+    }
+
+    const captcha = await verifyTurnstile(turnstileToken);
+    if (!captcha.ok) {
+      return jsonResponse(
+        { error: turnstileErrorMessage(captcha.errors), turnstileErrors: captcha.errors },
+        400
+      );
     }
 
     const allowed = await checkRateLimit(admin, `join:${userData.user.id}`, 10, 900);

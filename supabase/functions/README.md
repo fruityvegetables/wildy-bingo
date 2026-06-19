@@ -22,19 +22,23 @@ npx supabase secrets set TURNSTILE_SECRET_KEY=your_turnstile_secret
 
 ## Deploy
 
-Deploy all four functions:
+Deploy all four functions.
+
+**Important:** signup and login are public — deploy them with `--no-verify-jwt`:
 
 ```bash
-npx supabase functions deploy auth-signup
-npx supabase functions deploy auth-login
+npx supabase functions deploy auth-signup --no-verify-jwt
+npx supabase functions deploy auth-login --no-verify-jwt
 npx supabase functions deploy create-game
 npx supabase functions deploy join-game
 ```
 
+Or use `supabase/config.toml` in this repo (sets `verify_jwt = false` for auth functions).
+
 Or deploy in one line:
 
 ```bash
-npx supabase functions deploy auth-signup && npx supabase functions deploy auth-login && npx supabase functions deploy create-game && npx supabase functions deploy join-game
+npx supabase functions deploy auth-signup --no-verify-jwt && npx supabase functions deploy auth-login --no-verify-jwt && npx supabase functions deploy create-game && npx supabase functions deploy join-game
 ```
 
 ## If deploy still fails
@@ -53,3 +57,5 @@ curl -i https://YOUR_PROJECT.supabase.co/functions/v1/auth-login \
 ```
 
 Expect `400` captcha failure (not `404` or bundle error).
+
+If you get **404**, the function is not deployed on that project — see `docs/troubleshooting-signup-404.md`.
