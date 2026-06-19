@@ -82,7 +82,7 @@ export default function HomeView() {
             ☠
           </span>
           <div>
-            <h1>Wildy Bingo</h1>
+            <h1>Wildy Bingo!</h1>
             <p className="header-tagline">Multiplayer · private join codes</p>
           </div>
         </div>
