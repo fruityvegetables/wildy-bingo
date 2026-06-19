@@ -142,3 +142,35 @@ export function cellCount(size) {
   if (size % 2 === 1) total -= 1;
   return total;
 }
+
+/** Marked keys are `${row}-${col}`. Center FREE counts as marked on odd sizes. */
+export function checkBingoWin(marked, size) {
+  if (!marked || size < 1) return false;
+
+  const isMarked = (row, col) => {
+    if (isCenterCell(row, col, size)) return true;
+    return marked.has(`${row}-${col}`);
+  };
+
+  for (let row = 0; row < size; row++) {
+    if (Array.from({ length: size }, (_, col) => isMarked(row, col)).every(Boolean)) {
+      return true;
+    }
+  }
+
+  for (let col = 0; col < size; col++) {
+    if (Array.from({ length: size }, (_, row) => isMarked(row, col)).every(Boolean)) {
+      return true;
+    }
+  }
+
+  if (Array.from({ length: size }, (_, i) => isMarked(i, i)).every(Boolean)) {
+    return true;
+  }
+
+  if (Array.from({ length: size }, (_, i) => isMarked(i, size - 1 - i)).every(Boolean)) {
+    return true;
+  }
+
+  return false;
+}

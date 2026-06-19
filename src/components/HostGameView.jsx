@@ -13,6 +13,7 @@ import {
 } from '../utils/bingo.js';
 import {
   approvePlayer,
+  endMatch,
   fetchGame,
   fetchGamePlayers,
   fetchTileMarks,
@@ -23,6 +24,8 @@ import {
   toggleTileMark,
   updateHostBoard,
 } from '../utils/gameApi.js';
+import { useWinCelebration } from '../utils/useWinCelebration.js';
+import WinCelebration from './WinCelebration.jsx';
 
 export default function HostGameView({ demoGameId }) {
   const { gameId: routeGameId } = useParams();
@@ -39,9 +42,11 @@ export default function HostGameView({ demoGameId }) {
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [busy, setBusy] = useState(false);
   const [hostMarks, setHostMarks] = useState(() => new Set());
+  const { celebrate, headline, handleGameEvent } = useWinCelebration();
 
   const isLobby = game?.status === 'lobby';
   const isLive = game?.status === 'live';
+  const isEnded = game?.status === 'ended';
 
   const loadAll = useCallback(async () => {
     const [gameRes, playersRes] = await Promise.all([fetchGame(gameId), fetchGamePlayers(gameId)]);
@@ -73,6 +78,10 @@ export default function HostGameView({ demoGameId }) {
     const unsubscribe = subscribeToGame(gameId, {
       onGame: (nextGame) => setGame(nextGame),
       onPlayer: () => loadAll(),
+      onEvent: (event) => {
+        handleGameEvent(event);
+        if (event.event_type === 'match_ended') loadAll();
+      },
       onMark: (payload) => {
         if (payload.eventType === 'DELETE') {
           setMarks((prev) =>
@@ -102,7 +111,7 @@ export default function HostGameView({ demoGameId }) {
     });
 
     return unsubscribe;
-  }, [gameId, loadAll]);
+  }, [gameId, loadAll, handleGameEvent]);
 
   const saveBoard = async () => {
     if (!isLobby) return;
@@ -146,7 +155,21 @@ export default function HostGameView({ demoGameId }) {
     }
     setGame(result.game);
     setShowSetup(false);
-    setMsg({ type: 'success', text: 'Match started — boards locked.' });
+    setMsg({ type: 'success', text: 'Match started — each player gets a unique shuffled board.' });
+    loadAll();
+  };
+
+  const handleEndMatch = async () => {
+    if (!window.confirm('End the match for everyone?')) return;
+    setBusy(true);
+    const result = await endMatch(gameId);
+    setBusy(false);
+    if (!result.ok) {
+      setMsg({ type: 'error', text: result.error });
+      return;
+    }
+    setGame(result.game);
+    setMsg({ type: 'success', text: 'Match ended.' });
     loadAll();
   };
 
@@ -192,6 +215,7 @@ export default function HostGameView({ demoGameId }) {
 
   return (
     <div className="app-shell">
+      <WinCelebration active={celebrate} headline={headline} />
       <header className="app-header stone-panel">
         <div className="header-brand">
           <span className="skull-icon" aria-hidden="true">
@@ -200,7 +224,7 @@ export default function HostGameView({ demoGameId }) {
           <div>
             <h1>{game.name}</h1>
             <p className="header-tagline">
-              Host · {isLobby ? 'Lobby' : 'Live'} · code{' '}
+              Host · {isLobby ? 'Lobby' : isEnded ? 'Ended' : 'Live'} · code{' '}
               <strong className="join-code">{game.join_code}</strong>
             </p>
           </div>
@@ -216,11 +240,20 @@ export default function HostGameView({ demoGameId }) {
               Card Setup
             </button>
           )}
+          {isLive && (
+            <button type="button" className="btn btn-danger" onClick={handleEndMatch} disabled={busy}>
+              End Match
+            </button>
+          )}
           <Link to="/" className="btn btn-ghost">
             Home
           </Link>
         </div>
       </header>
+
+      {isEnded && (
+        <p className="form-message success match-ended-banner">This match has ended.</p>
+      )}
 
       {msg.text && <p className={`form-message ${msg.type} banner-message`}>{msg.text}</p>}
 
@@ -328,7 +361,8 @@ export default function HostGameView({ demoGameId }) {
                 </button>
               </div>
               <p className="hint footnote">
-                Share join code <strong>{game.join_code}</strong>. Boards lock when you start.
+                Share join code <strong>{game.join_code}</strong>. On start, each player gets the same
+                items in a different layout.
               </p>
             </div>
           </div>
@@ -373,13 +407,16 @@ export default function HostGameView({ demoGameId }) {
           />
         </section>
 
-        {isLive && (
+        {(isLive || isEnded) && (
           <section className="monitor-panel stone-panel">
-            <h2>Player Boards</h2>
+            <h2>{isEnded ? 'Final Boards' : 'Player Boards'}</h2>
             <div className="monitor-grid">
               {playingPlayers.map((player) => (
                 <div key={player.id} className="monitor-card">
-                  <h3>{player.display_name}</h3>
+                  <h3>
+                    {player.display_name}
+                    {player.won_at && <span className="winner-badge">Bingo</span>}
+                  </h3>
                   <BingoBoard
                     grid={player.board_grid}
                     size={game.board_size}

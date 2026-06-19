@@ -1,7 +1,10 @@
 import { demoGames, demoMarks, demoPlayersByGame } from './fixtures.js';
+import { shuffleBoard } from '../utils/bingo.js';
 
 const ok = (data) => ({ ok: true, ...data });
 const fail = (error) => ({ ok: false, error });
+
+const demoEvents = [];
 
 export async function fetchGame(gameId) {
   const game = demoGames[gameId];
@@ -39,7 +42,10 @@ export async function startGame(gameId) {
   game.locked_at = new Date().toISOString();
   const players = demoPlayersByGame[gameId] ?? [];
   players.forEach((p) => {
-    if (p.status === 'approved' || p.status === 'pending') p.status = 'playing';
+    if (p.status === 'approved' || p.status === 'pending') {
+      p.status = 'playing';
+      p.board_grid = shuffleBoard(game.host_grid);
+    }
   });
   return ok({ game: { ...game } });
 }
@@ -89,6 +95,52 @@ export async function toggleTileMark(gameId, row, col) {
   };
   demoMarks.push(mark);
   return ok({ mark });
+}
+
+const lastDemoCelebration = new Map();
+
+export async function reportBingoWin(gameId) {
+  const players = demoPlayersByGame[gameId] ?? [];
+  const player = players.find((p) => p.status === 'playing');
+  if (!player) return fail('No active player.');
+
+  const key = `${gameId}:${player.id}`;
+  const now = Date.now();
+  if (lastDemoCelebration.get(key) && now - lastDemoCelebration.get(key) < 5000) {
+    return ok({ celebration: false, reason: 'rate_limited', display_name: player.display_name });
+  }
+
+  lastDemoCelebration.set(key, now);
+  if (!player.won_at) player.won_at = new Date().toISOString();
+
+  demoEvents.push({
+    id: `ev-${now}`,
+    game_id: gameId,
+    player_id: player.id,
+    event_type: 'bingo_win',
+    payload: { display_name: player.display_name },
+    created_at: new Date().toISOString(),
+  });
+
+  return ok({
+    celebration: true,
+    display_name: player.display_name,
+    won_at: player.won_at,
+  });
+}
+
+export async function endMatch(gameId) {
+  const game = demoGames[gameId];
+  if (!game) return fail('Demo game not found.');
+  game.status = 'ended';
+  demoEvents.push({
+    id: `ev-end-${Date.now()}`,
+    game_id: gameId,
+    event_type: 'match_ended',
+    payload: {},
+    created_at: new Date().toISOString(),
+  });
+  return ok({ game: { ...game } });
 }
 
 export function subscribeToGame(_gameId, _handlers) {

@@ -115,6 +115,26 @@ export async function toggleTileMark(gameId, row, col) {
   return { ok: true, mark: data };
 }
 
+export async function reportBingoWin(gameId) {
+  if (isDemoMode()) return demoApi.reportBingoWin(gameId);
+  const supabase = getSupabase();
+  if (!supabase) return notConfigured();
+
+  const { data, error } = await supabase.rpc('report_bingo_win', { p_game_id: gameId });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, ...data };
+}
+
+export async function endMatch(gameId) {
+  if (isDemoMode()) return demoApi.endMatch(gameId);
+  const supabase = getSupabase();
+  if (!supabase) return notConfigured();
+
+  const { data, error } = await supabase.rpc('end_match', { p_game_id: gameId });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, game: data };
+}
+
 export async function fetchGame(gameId) {
   if (isDemoMode()) return demoApi.fetchGame(gameId);
   const supabase = getSupabase();
@@ -187,6 +207,11 @@ export function subscribeToGame(gameId, handlers) {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'tile_marks' },
       (payload) => handlers.onMark?.(payload)
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'game_events', filter: `game_id=eq.${gameId}` },
+      (payload) => handlers.onEvent?.(payload.new)
     )
     .subscribe();
 

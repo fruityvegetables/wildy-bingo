@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import BingoBoard from './BingoBoard.jsx';
+import WinCelebration from './WinCelebration.jsx';
+import { checkBingoWin } from '../utils/bingo.js';
 import {
   fetchGame,
   fetchGamePlayers,
   fetchTileMarks,
   marksToSet,
+  reportBingoWin,
   subscribeToGame,
   toggleTileMark,
 } from '../utils/gameApi.js';
+import { useWinCelebration, WIN_REPORT_COOLDOWN_MS } from '../utils/useWinCelebration.js';
 
 export default function PlayerGameView({ demoGameId }) {
   const { gameId: routeGameId } = useParams();
@@ -19,6 +23,8 @@ export default function PlayerGameView({ demoGameId }) {
   const [player, setPlayer] = useState(null);
   const [marked, setMarked] = useState(() => new Set());
   const [msg, setMsg] = useState({ type: '', text: '' });
+  const lastWinReportAt = useRef(0);
+  const { celebrate, headline, triggerCelebration, handleGameEvent } = useWinCelebration();
 
   const loadAll = useCallback(async () => {
     const [gameRes, playersRes] = await Promise.all([fetchGame(gameId), fetchGamePlayers(gameId)]);
@@ -60,9 +66,13 @@ export default function PlayerGameView({ demoGameId }) {
     const unsubscribe = subscribeToGame(gameId, {
       onGame: (nextGame) => {
         setGame(nextGame);
-        if (nextGame.status === 'live') loadAll();
+        if (nextGame.status === 'live' || nextGame.status === 'ended') loadAll();
       },
       onPlayer: () => loadAll(),
+      onEvent: (event) => {
+        handleGameEvent(event);
+        if (event.event_type === 'match_ended') loadAll();
+      },
       onMark: (payload) => {
         if (!player) return;
         if (payload.new?.game_player_id !== player.id && payload.old?.game_player_id !== player.id) {
@@ -82,7 +92,32 @@ export default function PlayerGameView({ demoGameId }) {
     });
 
     return unsubscribe;
-  }, [gameId, loadAll, player]);
+  }, [gameId, loadAll, player, handleGameEvent]);
+
+  const maybeReportWin = useCallback(
+    async (nextMarked) => {
+      if (!game || game.status !== 'live' || !player || player.status !== 'playing') return;
+      if (!checkBingoWin(nextMarked, game.board_size)) return;
+
+      const now = Date.now();
+      if (now - lastWinReportAt.current < WIN_REPORT_COOLDOWN_MS) return;
+      lastWinReportAt.current = now;
+
+      const result = await reportBingoWin(gameId);
+      if (!result.ok) {
+        if (result.error !== 'No bingo yet') {
+          setMsg({ type: 'error', text: result.error });
+        }
+        return;
+      }
+
+      if (result.celebration) {
+        triggerCelebration(result.display_name ?? username);
+      }
+      loadAll();
+    },
+    [game, player, gameId, username, triggerCelebration, loadAll]
+  );
 
   const handleToggleMark = async (key) => {
     if (game?.status !== 'live' || !player || player.status !== 'playing') return;
@@ -99,6 +134,7 @@ export default function PlayerGameView({ demoGameId }) {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      maybeReportWin(next);
       return next;
     });
   };
@@ -123,9 +159,11 @@ export default function PlayerGameView({ demoGameId }) {
   const isPending = player?.status === 'pending';
   const isWaiting = game.status === 'lobby' && player?.status === 'approved';
   const isLive = game.status === 'live' && player?.status === 'playing';
+  const isEnded = game.status === 'ended';
 
   return (
     <div className="app-shell">
+      <WinCelebration active={celebrate} headline={headline} />
       <header className="app-header stone-panel">
         <div className="header-brand">
           <span className="skull-icon" aria-hidden="true">
@@ -134,7 +172,11 @@ export default function PlayerGameView({ demoGameId }) {
           <div>
             <h1>{game.name}</h1>
             <p className="header-tagline">
-              {username} · {isLive ? 'Live' : isPending ? 'Awaiting approval' : 'Lobby'}
+              {username} ·{' '}
+              {isEnded ? 'Match ended' : isLive ? 'Live' : isPending ? 'Awaiting approval' : 'Lobby'}
+              {player?.won_at && isLive && (
+                <span className="winner-badge"> Bingo!</span>
+              )}
             </p>
           </div>
         </div>
@@ -145,9 +187,15 @@ export default function PlayerGameView({ demoGameId }) {
         </div>
       </header>
 
+      {isEnded && (
+        <p className="form-message success match-ended-banner">
+          The host ended this match. Thanks for playing.
+        </p>
+      )}
+
       {msg.text && <p className={`form-message ${msg.type} banner-message`}>{msg.text}</p>}
 
-      {(isPending || isWaiting) && (
+      {(isPending || isWaiting) && !isEnded && (
         <section className="waiting-panel stone-panel">
           <h2>
             {isPending ? 'Waiting for host approval…' : 'Waiting for host to start the match…'}
@@ -162,7 +210,11 @@ export default function PlayerGameView({ demoGameId }) {
             <div className="board-header">
               <div className="board-title-block">
                 <h2>Your Board</h2>
-                <p className="hint board-hint">Board locked · click tiles to mark</p>
+                <p className="hint board-hint">
+                  {player.won_at
+                    ? 'You got bingo! Keep marking or wait for the host to end the match.'
+                    : 'Board locked · click tiles to mark'}
+                </p>
               </div>
               <span className="wildy-badge small">
                 {game.board_size}×{game.board_size}

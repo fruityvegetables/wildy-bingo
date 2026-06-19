@@ -4,7 +4,9 @@ Each function is a **single self-contained `index.ts`** file (no `_shared` impor
 
 ## Prerequisites
 
-1. Run the SQL migration in `supabase/migrations/` (if present) in the Supabase SQL editor.
+1. Run SQL migrations in order in the Supabase SQL editor:
+   - `supabase/migrations/001_initial.sql`
+   - `supabase/migrations/002_game_rpcs_wins.sql`
 2. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and log in:
 
 ```bash
