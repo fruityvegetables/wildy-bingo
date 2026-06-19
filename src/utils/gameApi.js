@@ -6,6 +6,14 @@ function notConfigured() {
   return { ok: false, error: 'App is not configured. Check your .env file.' };
 }
 
+function formatDbError(error) {
+  const message = error?.message || 'Request failed.';
+  if (/infinite recursion|policy for relation/i.test(message)) {
+    return `${message} Run supabase/migrations/003_fix_rls_recursion.sql in the Supabase SQL editor.`;
+  }
+  return message;
+}
+
 async function callFunction(name, body = {}, requireAuth = true) {
   if (!getAppConfig().isConfigured) return notConfigured();
 
@@ -141,7 +149,7 @@ export async function fetchGame(gameId) {
   if (!supabase) return notConfigured();
 
   const { data, error } = await supabase.from('games').select('*').eq('id', gameId).single();
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: formatDbError(error) };
   return { ok: true, game: data };
 }
 
@@ -156,7 +164,7 @@ export async function fetchGamePlayers(gameId) {
     .eq('game_id', gameId)
     .order('joined_at');
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: formatDbError(error) };
   return { ok: true, players: data };
 }
 
@@ -172,7 +180,7 @@ export async function fetchTileMarks(playerIds) {
     .select('*')
     .in('game_player_id', playerIds);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: formatDbError(error) };
   return { ok: true, marks: data };
 }
 

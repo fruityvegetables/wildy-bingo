@@ -7,6 +7,27 @@
 alter table public.game_players
   add column if not exists won_at timestamptz;
 
+create or replace function public.is_game_participant(p_game_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.game_players
+    where game_id = p_game_id and user_id = auth.uid()
+  )
+  or exists (
+    select 1
+    from public.games
+    where id = p_game_id and host_id = auth.uid()
+  );
+$$;
+
+grant execute on function public.is_game_participant(uuid) to authenticated;
+
 create table if not exists public.game_events (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references public.games (id) on delete cascade,
@@ -21,18 +42,10 @@ create index if not exists game_events_game_id_created_idx
 
 alter table public.game_events enable row level security;
 
+drop policy if exists "Game events readable by game participants" on public.game_events;
 create policy "Game events readable by game participants"
   on public.game_events for select to authenticated
-  using (
-    exists (
-      select 1 from public.game_players gp
-      where gp.game_id = game_events.game_id and gp.user_id = auth.uid()
-    )
-    or exists (
-      select 1 from public.games g
-      where g.id = game_events.game_id and g.host_id = auth.uid()
-    )
-  );
+  using (public.is_game_participant(game_id));
 
 -- Realtime (ignore error if already added)
 do $$
@@ -525,53 +538,56 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- RLS for games / players / marks (if not already present)
+-- RLS for games / players / marks (security definer helper avoids 500 recursion)
 -- ---------------------------------------------------------------------------
 
-do $$
-begin
-  create policy "Games readable by participants"
-    on public.games for select to authenticated
-    using (
-      host_id = auth.uid()
-      or exists (
-        select 1 from public.game_players gp
-        where gp.game_id = games.id and gp.user_id = auth.uid()
-      )
-    );
-exception when duplicate_object then null;
-end $$;
+create or replace function public.is_game_participant(p_game_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.game_players
+    where game_id = p_game_id and user_id = auth.uid()
+  )
+  or exists (
+    select 1
+    from public.games
+    where id = p_game_id and host_id = auth.uid()
+  );
+$$;
 
-do $$
-begin
-  create policy "Game players readable in same game"
-    on public.game_players for select to authenticated
-    using (
-      exists (
-        select 1 from public.game_players gp
-        where gp.game_id = game_players.game_id and gp.user_id = auth.uid()
-      )
-      or exists (
-        select 1 from public.games g
-        where g.id = game_players.game_id and g.host_id = auth.uid()
-      )
-    );
-exception when duplicate_object then null;
-end $$;
+grant execute on function public.is_game_participant(uuid) to authenticated;
 
-do $$
-begin
-  create policy "Tile marks readable in same game"
-    on public.tile_marks for select to authenticated
-    using (
-      exists (
-        select 1 from public.game_players gp
-        join public.game_players me on me.game_id = gp.game_id and me.user_id = auth.uid()
-        where gp.id = tile_marks.game_player_id
-      )
-    );
-exception when duplicate_object then null;
-end $$;
+drop policy if exists "Games readable by participants" on public.games;
+create policy "Games readable by participants"
+  on public.games for select to authenticated
+  using (public.is_game_participant(id));
+
+drop policy if exists "Game players readable in same game" on public.game_players;
+create policy "Game players readable in same game"
+  on public.game_players for select to authenticated
+  using (public.is_game_participant(game_id));
+
+drop policy if exists "Tile marks readable in same game" on public.tile_marks;
+create policy "Tile marks readable in same game"
+  on public.tile_marks for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.game_players gp
+      where gp.id = tile_marks.game_player_id
+        and public.is_game_participant(gp.game_id)
+    )
+  );
+
+drop policy if exists "Game events readable by game participants" on public.game_events;
+create policy "Game events readable by game participants"
+  on public.game_events for select to authenticated
+  using (public.is_game_participant(game_id));
 
 grant execute on function public.create_game to authenticated;
 grant execute on function public.join_game to authenticated;

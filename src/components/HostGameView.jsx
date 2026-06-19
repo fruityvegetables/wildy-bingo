@@ -40,6 +40,7 @@ export default function HostGameView({ demoGameId }) {
   const [requireApproval, setRequireApproval] = useState(false);
   const [showSetup, setShowSetup] = useState(true);
   const [msg, setMsg] = useState({ type: '', text: '' });
+  const [loadError, setLoadError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [hostMarks, setHostMarks] = useState(() => new Set());
   const { celebrate, headline, handleGameEvent } = useWinCelebration();
@@ -52,10 +53,12 @@ export default function HostGameView({ demoGameId }) {
     const [gameRes, playersRes] = await Promise.all([fetchGame(gameId), fetchGamePlayers(gameId)]);
 
     if (!gameRes.ok) {
+      setLoadError(gameRes.error);
       setMsg({ type: 'error', text: gameRes.error });
       return;
     }
 
+    setLoadError(null);
     setGame(gameRes.game);
     setSize(gameRes.game.board_size);
     setGrid(gameRes.game.host_grid);
@@ -210,6 +213,22 @@ export default function HostGameView({ demoGameId }) {
   );
 
   if (!game) {
+    if (loadError) {
+      return (
+        <div className="app-shell">
+          <section className="share-panel stone-panel">
+            <p className="form-message error">{loadError}</p>
+            <p className="hint">
+              If this mentions database permissions, run{' '}
+              <code>supabase/migrations/003_fix_rls_recursion.sql</code> in the Supabase SQL editor.
+            </p>
+            <Link to="/" className="btn btn-ghost">
+              Back home
+            </Link>
+          </section>
+        </div>
+      );
+    }
     return <div className="loading-screen">Loading game…</div>;
   }
 

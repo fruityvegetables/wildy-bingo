@@ -82,7 +82,7 @@ export default function HomeView() {
             ☠
           </span>
           <div>
-            <h1>AFC Anti Bingo</h1>
+            <h1>Wildy Bingo</h1>
             <p className="header-tagline">Multiplayer · private join codes</p>
           </div>
         </div>
@@ -137,7 +137,7 @@ export default function HomeView() {
                 <input
                   value={gameName}
                   onChange={(e) => setGameName(e.target.value)}
-                  placeholder="AFC Anti Bingo"
+                  placeholder="Wildy Bingo"
                 />
               </label>
               <label className="checkbox-row">
@@ -165,7 +165,7 @@ export default function HomeView() {
                 <input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="AFC123"
+                  placeholder="WLD123"
                   maxLength={6}
                 />
               </label>

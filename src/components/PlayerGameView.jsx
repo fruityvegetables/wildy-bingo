@@ -23,6 +23,7 @@ export default function PlayerGameView({ demoGameId }) {
   const [player, setPlayer] = useState(null);
   const [marked, setMarked] = useState(() => new Set());
   const [msg, setMsg] = useState({ type: '', text: '' });
+  const [loadError, setLoadError] = useState(null);
   const lastWinReportAt = useRef(0);
   const { celebrate, headline, triggerCelebration, handleGameEvent } = useWinCelebration();
 
@@ -30,10 +31,12 @@ export default function PlayerGameView({ demoGameId }) {
     const [gameRes, playersRes] = await Promise.all([fetchGame(gameId), fetchGamePlayers(gameId)]);
 
     if (!gameRes.ok) {
+      setLoadError(gameRes.error);
       setMsg({ type: 'error', text: gameRes.error });
       return;
     }
 
+    setLoadError(null);
     setGame(gameRes.game);
 
     if (!playersRes.ok) return;
@@ -140,6 +143,22 @@ export default function PlayerGameView({ demoGameId }) {
   };
 
   if (!game) {
+    if (loadError) {
+      return (
+        <div className="app-shell">
+          <section className="share-panel stone-panel">
+            <p className="form-message error">{loadError}</p>
+            <p className="hint">
+              If this mentions database permissions, run{' '}
+              <code>supabase/migrations/003_fix_rls_recursion.sql</code> in the Supabase SQL editor.
+            </p>
+            <Link to="/" className="btn btn-ghost">
+              Back home
+            </Link>
+          </section>
+        </div>
+      );
+    }
     return <div className="loading-screen">Loading game…</div>;
   }
 
